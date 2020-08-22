@@ -1,0 +1,19 @@
+﻿<Properties StartupConfiguration="{F230A16C-B9E4-9DF5-5F37-7C94BCAF5047}|">
+  <MonoDevelop.Ide.ItemProperties.Assembly-CSharp PreferredExecutionTarget="Unity.Editor" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets/GameManager.cs">
+    <Files>
+      <File FileName="Assets/Oculus/VR/Scripts/OVRCameraRig.cs" Line="33" Column="1" />
+      <File FileName="Assets/LeftHand.cs" Line="5" Column="1" />
+      <File FileName="Assets/RightHand.cs" Line="5" Column="39" />
+      <File FileName="Assets/GameManager.cs" Line="80" Column="64" />
+      <File FileName="Assets/Oculus/VR/Scripts/Util/OVRHand.cs" Line="38" Column="39" />
+      <File FileName="Assets/Ball.cs" Line="13" Column="29" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+  <MultiItemStartupConfigurations />
+</Properties>
