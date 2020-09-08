@@ -1,58 +1,64 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.IO;
+using System.Net;
+using System.Net.Mail;
+using System.Net.Mime;
+using System;
+using System.Security.Cryptography.X509Certificates;
+using System.Net.Security;
 
 public class GameManager : MonoBehaviour
 {
-    public bool rightHand = false; //false is left, true is right
-    public GameObject ball;
+    public bool rightHand = false; //false is left hand, true is right hand for the experiment
+    public GameObject ball;        // the pink ball in the experiment; set with inspector because it is a public variable
 
-    private bool reset = false;
+    private bool reset = false; 
     private int trial = 0;
     private float r = 0.4f;
     private float theta;
     private double error;
-    private float[] initCoords;
-    private Random rnd = new Random();
-    private Vector3 corVec = new Vector3(0.1f, 0.1f, 0.1f);
-    private GameObject OVRCameraRig;
-    private GameObject TrackingSpace;
-    private GameObject LeftHandAnchor;
-    private GameObject RightHandAnchor;
-    private GameObject LeftFab;
-    private GameObject RightFab;
-    private GameObject Hand;
-    private GameObject DisplayText;
+    private UnityEngine.Random rnd = new UnityEngine.Random();  //Allows for random numbers to be generated
+    private Vector3 corVec = new Vector3(0.1f, 0.1f, 0.1f);     //Units should default to meters, f means float
+    private GameObject OVRCameraRig; //Object which contains VR headset and hands
+    private GameObject LeftFab;      //Left hand gameobject
+    private GameObject RightFab;     //Right hand gameobject
+    private GameObject DisplayText;  //Parent gameobject containing all on-screen text (below)
+
+    //************************
     private GameObject Degree;
     private GameObject Error;
     private GameObject Trial;
     private GameObject BallPos;
     private GameObject HandPos;
     private GameObject Pinch;
-    public static GameManager Instance;
+    //************************
 
-    [SerializeField] private OVRSkeleton skeleton;
-    private OVRHand hand;
-    private Transform tip;
+    public static GameManager Instance; //A copy of the GameManager so other scripts can use variables in here (not currently being used)
 
-    private int[,] expOrder = new int[25, 2];
-    private float[,,] data = new float[5, 5, 2];
+    [SerializeField] private OVRSkeleton skeleton; //I do not know what SerializeField does, but you need it for OVRSkeleton to work
+    private OVRHand hand; //Will become the functioning hand in the game, depending on "rightHand"
+    private Transform tip; //Will track the index finger tip on whatever hand becomes active
+
+    private int[,] expOrder = new int[25, 2];     //This defines the experiment order, the 2 might be for a different less efficient randomization paradigm
+    private float[,,] data = new float[5, 5, 2];   //This would store the collected data from the experiment
+    public string path;
+    public string output;
+    public int emailSent;
 
 
-    // Start is called before the first frame update
+    //Start is called when the game is launched
     void Start()
+
     {
+
+        CreateText(); //calls the function to create the text file once the experiment starts
 
         if (Instance == null)
         {
-            Instance = this;
+            Instance = this;    //Stores a copy of itself in Instance
         }
-
-        //init_coords[0] = CenterEye.Instance.gameObject.transform.position.x;
-        //init_coords[1] = CenterEye.Instance.gameObject.transform.position.y;
-        //init_coords[2] = CenterEye.Instance.gameObject.transform.position.z;
-
-        //LeftFab.gameObject.GetComponent<OVRMeshRenderer>().enabled = false; makes hand invisible
 
         for (int i = 0; i < 5; i++)
         {
@@ -63,61 +69,51 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        Shuffle();
+        Shuffle();    //Randomizes the condition order
 
-        OVRCameraRig = GameObject.Find("OVRCameraRig");
-        TrackingSpace = OVRCameraRig.transform.GetChild(0).gameObject;
-        LeftHandAnchor = TrackingSpace.transform.GetChild(4).gameObject;
-        RightHandAnchor = TrackingSpace.transform.GetChild(5).gameObject;
-        LeftFab = LeftHandAnchor.transform.GetChild(1).gameObject;
-        RightFab = RightHandAnchor.transform.GetChild(1).gameObject;
+        LeftFab = LeftHand.Instance.gameObject;
+        RightFab = RightHand.Instance.gameObject;
 
+        //Using GetChild on a GameObject will return the closest GameObject from the top, like an array
         DisplayText = GameObject.Find("DisplayText");
-        Degree = DisplayText.transform.GetChild(0).gameObject;
+        Degree = DisplayText.transform.GetChild(0).gameObject;     
         Error = DisplayText.transform.GetChild(1).gameObject;
         Trial = DisplayText.transform.GetChild(2).gameObject;
         HandPos = DisplayText.transform.GetChild(3).gameObject;
         BallPos = DisplayText.transform.GetChild(4).gameObject;
         Pinch = DisplayText.transform.GetChild(5).gameObject;
 
+        //GetComponent is different for every type of component you're working with
         Degree.GetComponent<TextMesh>().text = "deg: n/a";
         Error.GetComponent<TextMesh>().text = "err: n/a";
         Trial.GetComponent<TextMesh>().text = "tri: 1";
 
-
-        if (rightHand == false)
+        if (rightHand == false) 
         {
 
-            Hand = LeftHand.Instance.gameObject;
-            skeleton = LeftFab.GetComponent<OVRSkeleton>();
-            hand = LeftFab.GetComponent<OVRHand>();
-            RightFab.gameObject.SetActive(false);
-
+            skeleton = LeftFab.GetComponent<OVRSkeleton>(); //Getting the skeleton data
+            hand = LeftFab.GetComponent<OVRHand>();         //Getting the hand prefab in the OVR camera rig
+            RightFab.gameObject.SetActive(false);      //SetActive is how you uncheck the GameObjects inside the script
 
         }
 
         else
         {
 
-            Hand = RightHand.Instance.gameObject;
             skeleton = RightFab.GetComponent<OVRSkeleton>();
             hand = RightFab.GetComponent<OVRHand>();
             LeftFab.gameObject.SetActive(false);
 
         }
 
-
-        theta = Random.Range(110f, 200f) * Mathf.PI / 180f;
-        theta = ( (expOrder[trial, 0] + 1) * 20 + 30) * Mathf.PI / 180f;
+        theta = ((expOrder[trial, 0] + 1) * 20 + 30) * Mathf.PI / 180f; //Sets the angle
         Instantiate(ball, new Vector3(r * Mathf.Cos(theta), 0, r * Mathf.Sin(theta)), Quaternion.identity);
         Degree.GetComponent<TextMesh>().text = "deg: " + ((expOrder[trial, 0] + 1) * 20 + 30).ToString();
 
-        //fingerBones = new List<OVRBone>(skeleton.Bones);
-        //HandPos.GetComponent<TextMesh>().text = fingerBones.Count.ToString();
+        tip = skeleton.Bones[(int)OVRSkeleton.BoneId.Hand_IndexTip].Transform;  //Gets access to the fingertip position
+        //8 might be able to replace "(int)OVRSkeleton.BoneId.Hand_IndexTip"
 
-
-
-        tip = skeleton.Bones[(int)OVRSkeleton.BoneId.Hand_IndexTip].Transform;
+        //hand.GetComponent<Renderer>().enabled = false;   makes hand invisible 
 
     }
 
@@ -125,31 +121,72 @@ public class GameManager : MonoBehaviour
     void Update()
 
     {
+        //posiiton of the ball, no y
+        BallPos.GetComponent<TextMesh>().text = System.Math.Round(Ball.Instance.gameObject.transform.position.x, 2).ToString() + ","
+                                              + System.Math.Round(Ball.Instance.gameObject.transform.position.z, 2).ToString() + ",";
 
-        BallPos.GetComponent<TextMesh>().text = System.Math.Round(Ball.Instance.gameObject.transform.position.x,2).ToString() + ","
-                                              + System.Math.Round(Ball.Instance.gameObject.transform.position.z,2).ToString() + ",";
-
-
+        //Position of fingertip, no y
         HandPos.GetComponent<TextMesh>().text = System.Math.Round(tip.transform.position.x, 2).ToString() + ","
                                               + System.Math.Round(tip.transform.position.z, 2).ToString() + ",";
 
-        Pinch.GetComponent<TextMesh>().text = hand.GetFingerIsPinching(OVRHand.HandFinger.Index).ToString();
+        Pinch.GetComponent<TextMesh>().text = hand.GetFingerIsPinching(OVRHand.HandFinger.Index).ToString(); //How to get hand pinching bool
 
-
-        //theta = Random.Range(40f, 160f) * Mathf.PI / 180f;
-        //Ball.Instance.gameObject.transform.position = new Vector3(r * Mathf.Cos(theta), 0, r * Mathf.Sin(theta));
 
         if ((tip.transform.position).magnitude >= r && (reset == false) && trial < 25)
         {
-            //error = Vector3.Distance(Ball.Instance.gameObject.transform.position, tip.transform.position);
-            error = Vector3.Angle(Ball.Instance.gameObject.transform.position, tip.transform.position);
+
+            //computes absolute value of angle from the ball to the fingertip
+            error = Vector3.Angle(Ball.Instance.gameObject.transform.position, tip.transform.position);  
             error = System.Math.Round(error, 3);
 
             reset = true;
+
+            //By making the size of the ball 0, it is effectively made invisible
             Ball.Instance.gameObject.transform.localScale = new Vector3(0f, 0f, 0f);
+
+
             trial++;
             Error.GetComponent<TextMesh>().text = "err: " + error.ToString();
             Trial.GetComponent<TextMesh>().text = "tri: " + (trial + 1).ToString();
+
+            {
+
+                //Content of the previously created text file
+                string content = "Error: " + error + "\r";
+                //Add some text to it by appending a new line after each trial
+                File.AppendAllText(path, content);
+
+            }
+
+        }
+        // run this script once at the 25th trials and the email has not been sent yet (this prevents an email from being sent during every frame of the 25th trial)
+        if (trial == 25 && emailSent == 0)
+        {
+            //must enable SMTP on the specified gmail account https://www.youtube.com/watch?v=D-NYmDWiFjU
+
+            MailMessage mail = new MailMessage();
+            mail.From = new MailAddress("elisenstein@gmail.com");
+            //enter SMTP enabled gmail address above to send FROM
+            mail.To.Add("elisenstein@gmail.com");
+            //enter SMTP enabled gmail address above to send TO
+            mail.Subject = "Test Smtp Mail";
+            mail.IsBodyHtml = true; //to make message body as html  
+            mail.Body = "Data";
+            System.Net.Mail.Attachment attachment;
+            attachment = new System.Net.Mail.Attachment(path); //********
+            mail.Attachments.Add(attachment);
+
+            // you can use others too.
+            SmtpClient smtpServer = new SmtpClient("smtp.gmail.com");
+            smtpServer.Port = 587;
+            smtpServer.Credentials = new System.Net.NetworkCredential("elisenstein@gmail.com", "password") as ICredentialsByHost;
+            //enter SMTP enabled gmail account above NetworkCredential("emailaddress@gmail.com", "password for email address")
+            smtpServer.EnableSsl = true;
+            ServicePointManager.ServerCertificateValidationCallback =
+            delegate (object s, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+            { return true; };
+            smtpServer.Send(mail);
+            emailSent = 1;
         }
 
         if (hand.GetFingerIsPinching(OVRHand.HandFinger.Index) == true && reset == true && trial < 25)
@@ -160,25 +197,24 @@ public class GameManager : MonoBehaviour
             Ball.Instance.gameObject.transform.position = new Vector3(r * Mathf.Cos(theta), 0, r * Mathf.Sin(theta));
             Degree.GetComponent<TextMesh>().text = "deg: " + ((expOrder[trial, 0] + 1) * 20 + 30).ToString();
 
-
-
         }
 
-        if (trial >= 25) {
+        if (trial >= 25)
+        {
             Ball.Instance.gameObject.transform.localScale = new Vector3(0f, 0f, 0f);
         }
 
     }
 
-    public void Shuffle()
+    void Shuffle()     //Fisher-yates shuffle
     {
-        int rand;;
+        int rand; ;
         int tempOne;
         int tempTwo;
 
         for (int i = 0; i < expOrder.GetLength(0); i++)
         {
-            rand = Random.Range(0, expOrder.GetLength(0) - 1);
+            rand = UnityEngine.Random.Range(0, expOrder.GetLength(0) - 1);
 
             tempOne = expOrder[rand, 0];
             tempTwo = expOrder[rand, 1];
@@ -190,5 +226,23 @@ public class GameManager : MonoBehaviour
             expOrder[i, 1] = tempTwo;
 
         }
+
     }
+
+    //Create a text file that contains the errors for each trial
+    void CreateText()
+    {
+        //Path of the file to save to Oculus Quest internal files
+        path = "./sdcard/Android/data/com.TadinLab.AutismDemo/Data/" + System.DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss") + ".txt";
+        output = "";
+        emailSent = 0;
+
+        //Create file if it doesn't exist
+        if (!File.Exists(path))
+        {
+            File.WriteAllText(path, "List of Errors by Trial \n\n");
+        }
+
+    }
+
 }

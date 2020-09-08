@@ -4,11 +4,12 @@ using UnityEngine;
 
 public class LeftHand : MonoBehaviour
 {
-    public static LeftHand Instance;
+    public static LeftHand Instance; //A copy of this game object so other scripts (namely GameManager) can access aspects of the gameObject
     // Start is called before the first frame update
     void Start()
     {
         if (Instance == null) {
+
             Instance = this;
         }
         

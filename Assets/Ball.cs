@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Ball : MonoBehaviour
 {
-    public static Ball Instance;
+    public static Ball Instance; //A copy of this game object so other scripts (namely GameManager) can access aspects of the gameObject
     // Start is called before the first frame update
     void Start()
     {
